@@ -75,11 +75,10 @@ async def import_questions(
     if not file.filename.endswith(".txt"):
         return ApiResponse(code=400, message="只支持TXT文件")
 
-    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
+    bank_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "题库")
+    os.makedirs(bank_dir, exist_ok=True)
 
-    import time
-    file_path = os.path.join(upload_dir, f"questions-{int(time.time())}-{file.filename}")
+    file_path = os.path.join(bank_dir, file.filename)
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
@@ -87,8 +86,6 @@ async def import_questions(
     try:
         result = await question_service.import_from_file(db, file_path, grade_id, type_id, file.filename)
     except Exception as e:
-        if os.path.exists(file_path):
-            os.remove(file_path)
         logger.error(f"导入题目失败: {e}")
         return ApiResponse(code=500, message="导入题目失败", data={"error": str(e)})
 

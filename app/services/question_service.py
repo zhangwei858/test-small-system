@@ -169,9 +169,6 @@ async def import_from_file(db: AsyncSession, file_path: str, grade_id: int, type
 
     await paper_service.update_paper_count(db, paper.id, len(success_list))
 
-    if os.path.exists(file_path):
-        os.remove(file_path)
-
     return {
         "success_count": len(success_list),
         "fail_count": len(fail_list),

@@ -52,16 +52,9 @@ app.include_router(wrong_answers.router)
 
 base_dir = os.path.dirname(os.path.dirname(__file__))
 static_dir = os.path.join(base_dir, "static")
-uploads_dir = os.path.join(base_dir, "uploads")
-data_dir = os.path.join(base_dir, "app", "data")
-
-os.makedirs(uploads_dir, exist_ok=True)
 
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-if os.path.exists(uploads_dir):
-    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
 @app.get("/health")
