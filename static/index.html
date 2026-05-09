@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>考试评测系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="background-container" id="background-container"></div>
+  <div id="app">
+    <header class="app-header">
+      <div class="user-info" id="user-info" style="display:none">
+        <span class="user-role" id="user-role"></span>
+        <span class="user-name" id="user-name"></span>
+        <button class="logout-btn" onclick="logout()">退出</button>
+      </div>
+      <div class="login-btn-container" id="login-btn-container">
+        <button class="nav-btn login-btn" onclick="navigateTo('welcome')">🔐 登录</button>
+      </div>
+      <h1 class="app-title" onclick="navigateTo('welcome')">📚 考试评测系统</h1>
+      <nav class="app-nav">
+        <button class="nav-btn" onclick="goHome()">首页</button>
+        <button class="nav-btn" onclick="navigateTo('history')">成绩查询</button>
+        <button class="nav-btn" onclick="navigateTo('lottery-history')">中奖记录</button>
+        <button class="nav-btn" id="wrong-answers-nav-btn" onclick="navigateTo('wrong-answers')">📝 错题本</button>
+        <button class="nav-btn" id="redeem-manage-nav-btn" style="display:none" onclick="navigateTo('redeem-manage')">兑现管理</button>
+        <button class="nav-btn" id="manage-nav-btn" style="display:none" onclick="navigateTo('manage')">题库管理</button>
+        <button class="nav-btn admin-btn" id="admin-nav-btn" style="display:none" onclick="navigateTo('users')">👥 用户管理</button>
+        <button class="nav-btn bg-toggle-btn" onclick="changeBackground()" title="切换背景">🎨</button>
+        </nav>
+      </header>
+
+      <main class="app-main">
+        <section id="page-welcome" class="page active">
+        <div class="welcome-ceremony">
+          <div class="welcome-step welcome-step-1" id="welcome-step-1">
+            <div class="welcome-icon">👋</div>
+            <h2>欢迎来到考试评测系统</h2>
+            <p>请输入你的名字开始</p>
+            <div class="name-input-wrapper">
+              <select id="welcome-name" class="name-input-large">
+                <option value="">请选择你的名字</option>
+                <option value="张伟">张伟</option>
+                <option value="张洛琳">张洛琳</option>
+                <option value="张洛晗">张洛晗</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-large" onclick="submitName()">开始</button>
+          </div>
+
+          <div class="welcome-step welcome-step-2" id="welcome-step-2" style="display:none">
+            <div class="photo-container">
+              <div class="photo-frame">
+                <img id="student-photo" src="" alt="学生照片" class="student-photo">
+                <div class="photo-placeholder" id="photo-placeholder">📷</div>
+              </div>
+              <div class="student-name" id="student-name"></div>
+            </div>
+            <div class="welcome-message">
+              <div class="welcome-title" id="welcome-title">正在准备欢迎仪式...</div>
+              <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+              <div class="progress-text" id="progress-text"></div>
+            </div>
+          </div>
+
+          <div class="welcome-step welcome-step-3" id="welcome-step-3" style="display:none">
+            <div class="celebration-icon">🎉</div>
+            <h2 id="welcome-greeting"></h2>
+            <div class="surprise-notice">🎁 考试满分有惊喜噢 🎁</div>
+            <div class="ceremony-phrase">✨ 考试即将开始，请做好准备 ✨</div>
+            
+            <div class="history-score" id="history-score" style="display:none">
+              <div class="history-header">🏆 历史最佳成绩</div>
+              <div class="history-content">
+                <div class="history-score-value" id="history-score-value"></div>
+                <div class="history-info" id="history-info"></div>
+              </div>
+              <div class="encouragement-text" id="encouragement-text"></div>
+            </div>
+            
+            <div class="new-start" id="new-start" style="display:none">
+              <div class="new-start-icon">🌟</div>
+              <div class="new-start-text">这是你的第一次考试！加油！💪</div>
+            </div>
+            
+            <div class="ready-timer" id="ready-timer">3</div>
+            <button class="btn btn-primary btn-large ready-btn" onclick="startExamPreparation()">准备好了</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-home" class="page">
+        <div class="welcome-section">
+          <h2>👋 欢迎参加考试</h2>
+          <p>请选择年级开始考试</p>
+        </div>
+        <div class="grade-cards" id="grade-cards"></div>
+      </section>
+
+      <section id="page-users" class="page">
+        <div class="users-header">
+          <h2>👥 用户管理</h2>
+          <button class="btn btn-primary" onclick="showAddUserModal()">+ 注册新用户</button>
+        </div>
+
+        <div class="users-list" id="users-list"></div>
+
+        <div class="empty-state" id="users-empty" style="display:none">
+          <div class="empty-icon">👤</div>
+          <div class="empty-title">暂无用户</div>
+          <div class="empty-desc">点击上方按钮注册新用户</div>
+        </div>
+      </section>
+
+      <section id="page-papers" class="page">
+        <div class="welcome-section">
+          <h2>📋 选择试卷</h2>
+          <p>请选择一套试卷开始考试</p>
+          <button class="btn btn-secondary" onclick="navigateTo('home')">← 返回选择年级</button>
+        </div>
+        <div class="exam-filters">
+          <div class="filter-group">
+            <label>选题类型：</label>
+            <div class="type-checkboxes" id="type-checkboxes"></div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-secondary btn-sm" onclick="clearTypeSelection()">清除选题</button>
+            <button class="btn btn-primary btn-sm" onclick="goBackToGrades()">← 返回重选年级</button>
+          </div>
+        </div>
+        <div class="paper-cards" id="paper-cards"></div>
+      </section>
+
+      <section id="page-history" class="page">
+        <div class="history-header">
+          <h2>📊 考试成绩查询</h2>
+          <div class="history-search">
+            <input type="text" id="history-name-input" class="history-input" placeholder="输入学生姓名查询成绩" maxlength="20">
+            <button class="btn btn-primary" onclick="searchHistory()">查询</button>
+          </div>
+        </div>
+        
+        <div class="history-summary" id="history-summary" style="display:none">
+          <div class="summary-card">
+            <div class="summary-item">
+              <div class="summary-value" id="summary-total">0</div>
+              <div class="summary-label">考试次数</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value" id="summary-best">0</div>
+              <div class="summary-label">最高得分</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value" id="summary-average">0</div>
+              <div class="summary-label">平均分</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-value" id="summary-accuracy">0%</div>
+              <div class="summary-label">平均正确率</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="history-list" id="history-list"></div>
+        
+        <div class="empty-state" id="history-empty" style="display:none">
+          <div class="empty-icon">📝</div>
+          <div class="empty-title">暂无考试记录</div>
+          <div class="empty-desc">还没有考试记录，快去参加考试吧！</div>
+        </div>
+      </section>
+
+      <section id="page-exam" class="page">
+        <div class="exam-header">
+          <div class="exam-info">
+            <span class="exam-grade" id="exam-grade"></span>
+            <span class="exam-progress" id="exam-progress"></span>
+          </div>
+          <div class="exam-header-right">
+            <div class="timer" id="timer">30:00</div>
+            <button class="btn-exit" onclick="exitExam()" title="退出考试">✕</button>
+          </div>
+        </div>
+        <div class="question-area" id="question-area"></div>
+        <div class="exam-footer">
+          <div class="question-nav" id="question-nav"></div>
+          <div class="exam-actions">
+            <button class="btn btn-secondary btn-reset" onclick="resetExam()">🔄 重新选题</button>
+            <button class="btn btn-primary" id="btn-submit" onclick="submitAnswer()">提交答案</button>
+            <button class="btn btn-next" id="btn-next" onclick="nextQuestion()" style="display:none">下一题 →</button>
+            <button class="btn btn-finish" id="btn-finish" onclick="finishExam()" style="display:none">完成考试</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-reading-exam" class="page">
+        <div class="exam-header">
+          <div class="exam-info">
+            <span class="exam-grade" id="reading-exam-grade"></span>
+            <span class="exam-progress" id="reading-exam-progress"></span>
+          </div>
+          <div class="exam-header-right">
+            <div class="timer" id="reading-timer">20:00</div>
+            <button class="btn-exit" onclick="exitExam()" title="退出考试">✕</button>
+          </div>
+        </div>
+        <div class="reading-exam-body">
+          <div class="reading-passage-panel" id="reading-passage-panel">
+            <div class="reading-passage-header">
+              <span class="reading-passage-icon">📖</span>
+              <span>阅读材料</span>
+              <button class="reading-toggle-btn" id="reading-toggle-btn" onclick="toggleReadingPanel()">收起</button>
+            </div>
+            <div class="reading-passage-content" id="reading-passage-content"></div>
+          </div>
+          <div class="reading-questions-panel" id="reading-questions-panel">
+            <div class="reading-questions-header">
+              <span>📝 答题卡</span>
+              <span class="reading-questions-count" id="reading-questions-count"></span>
+            </div>
+            <div class="reading-questions-list" id="reading-questions-list"></div>
+            <div class="reading-exam-actions">
+              <button class="btn btn-secondary btn-reset" onclick="resetExam()">🔄 重新选题</button>
+              <button class="btn btn-primary btn-finish-reading" onclick="finishExam()">交卷</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-result" class="page">
+        <div class="result-container" id="result-container"></div>
+      </section>
+
+      <section id="page-lottery-history" class="page">
+        <div class="lottery-history-header">
+          <h2>🎰 我的中奖记录</h2>
+          <button class="btn btn-secondary" onclick="navigateTo('home')">← 返回首页</button>
+        </div>
+        <div class="lottery-records-list" id="lottery-records-list"></div>
+        <div class="empty-state" id="lottery-empty" style="display:none">
+          <div class="empty-icon">🎁</div>
+          <div class="empty-title">暂无中奖记录</div>
+          <div class="empty-desc">满分考试后可获得抽奖机会，快来参加考试吧！</div>
+        </div>
+      </section>
+
+      <section id="page-redeem-manage" class="page">
+        <div class="manage-header">
+          <h2>🎫 奖项兑现管理</h2>
+          <div class="header-actions">
+            <button class="btn btn-secondary" onclick="navigateTo('home')">← 返回首页</button>
+            <button class="btn btn-demo" id="btn-demo-lottery" style="display:none" onclick="showDemoLottery()">🎲 演示抽奖</button>
+          </div>
+        </div>
+        
+        <div class="tabs-container">
+          <button class="tab-btn active" onclick="switchTab('redemption')">兑现记录</button>
+          <button class="tab-btn" id="prize-tab" onclick="switchTab('prizes')">奖项管理</button>
+        </div>
+        
+        <div id="tab-redemption" class="tab-content">
+          <div class="redeem-summary">
+            <div class="summary-card">
+              <div class="summary-item">
+                <div class="summary-value" id="redeem-total">0</div>
+                <div class="summary-label">总中奖数</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value" id="redeem-unclaimed">0</div>
+                <div class="summary-label">未兑现</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value" id="redeem-claimed">0</div>
+                <div class="summary-label">已兑现</div>
+              </div>
+            </div>
+          </div>
+          <div class="redeem-filter">
+            <select id="redeem-status-filter" onchange="loadRedeemRecords()">
+              <option value="">全部状态</option>
+              <option value="false">未兑现</option>
+              <option value="true">已兑现</option>
+            </select>
+          </div>
+          <div class="redeem-records-list" id="redeem-records-list"></div>
+        </div>
+        
+        <div id="tab-prizes" class="tab-content" style="display:none">
+          <div class="prize-summary">
+            <div class="summary-card">
+              <div class="summary-item">
+                <div class="summary-value" id="prize-count">0</div>
+                <div class="summary-label">奖项数量</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value" id="prize-total-probability">0%</div>
+                <div class="summary-label">概率总和</div>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-add-prize" onclick="showAddPrizeModal()">+ 添加奖项</button>
+          <div class="prize-records-list" id="prize-records-list"></div>
+        </div>
+      </section>
+
+      <section id="page-wrong-answers" class="page">
+        <div class="wrong-answers-header">
+          <h2>📝 错题本</h2>
+          <div class="header-actions">
+            <button class="btn btn-secondary" onclick="navigateTo('home')">← 返回首页</button>
+            <button class="btn btn-primary" onclick="practiceWrongAnswers()">🎯 错题练习</button>
+            <button class="btn btn-warning" onclick="clearAllWrongAnswers()">🗑️ 清空错题本</button>
+          </div>
+          <div class="wrong-answers-count-badge">共 <span id="wrong-answers-count">0</span> 道错题</div>
+        </div>
+        <div class="wrong-answers-list" id="wrong-answers-list"></div>
+        <div class="empty-state" id="wrong-answers-empty" style="display:none">
+          <div class="empty-icon">✅</div>
+          <div class="empty-title">暂无错题记录</div>
+          <div class="empty-desc">继续保持，你做得很棒！</div>
+        </div>
+      </section>
+
+      <section id="page-manage" class="page">
+        <div class="manage-header">
+          <h2>📋 题库管理</h2>
+          <div class="manage-actions">
+            <button class="btn btn-primary" onclick="scanQuestionBank()">扫描题库文件夹导入</button>
+            <button class="btn btn-secondary" onclick="showImportDialog()">上传TXT文件导入</button>
+            <button class="btn btn-warning" onclick="resetAndRescan()">清空并重扫题库</button>
+            <button class="btn btn-danger" onclick="clearQuestionBank()">清空题库</button>
+          </div>
+        </div>
+        <div class="import-dialog" id="import-dialog" style="display:none">
+          <div class="dialog-content">
+            <div class="dialog-header">
+              <h3>上传题目文件</h3>
+              <button class="dialog-close" onclick="hideImportDialog()">✕</button>
+            </div>
+            <p>支持 TXT 格式，支持结构化格式和自然试卷格式</p>
+            <div class="form-group">
+              <label>选择年级</label>
+              <select id="import-grade-select" required>
+                <option value="">请选择年级</option>
+                <option value="1">低年级（幼儿园/幼升小）</option>
+                <option value="2">中年级（三年级）</option>
+                <option value="3">高年级（五/六年级）</option>
+              </select>
+            </div>
+            <input type="file" id="file-input" accept=".txt">
+            <div class="dialog-actions">
+              <button class="btn btn-primary" onclick="uploadFile()">上传</button>
+              <button class="btn btn-secondary" onclick="hideImportDialog()">取消</button>
+            </div>
+          </div>
+        </div>
+        <div class="manage-filters">
+          <select id="filter-grade" onchange="loadQuestions()">
+            <option value="">全部年级</option>
+          </select>
+          <select id="filter-type" onchange="loadQuestions()">
+            <option value="">全部题型</option>
+          </select>
+        </div>
+        <div class="questions-list" id="questions-list"></div>
+        <div class="pagination" id="pagination"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="celebration-overlay" id="celebration-overlay" style="display:none">
+    <div class="celebration-video-container" id="celebration-video-container">
+      <video id="celebration-video" class="celebration-video" muted playsinline loop preload="auto">
+      </video>
+      <div class="video-overlay"></div>
+    </div>
+    <div class="celebration-content">
+      <div class="celebration-text">🎉 太棒了！🎉</div>
+      <div class="celebration-score" id="celebration-score"></div>
+      <div class="celebration-msg">你真厉害！继续保持！</div>
+      <button class="btn btn-lottery" id="btn-lottery" style="display:none" onclick="showLottery()">🎁 点击抽奖</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="prize-modal" style="display:none">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="prize-modal-title">添加奖项</h3>
+        <button class="modal-close" onclick="closePrizeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="prize-form">
+          <input type="hidden" id="prize-id">
+          <div class="form-group">
+            <label>奖项名称</label>
+            <input type="text" id="prize-name" placeholder="请输入奖项名称" required>
+          </div>
+          <div class="form-group">
+            <label>Emoji图标</label>
+            <input type="text" id="prize-emoji" placeholder="请输入emoji" maxlength="3" required>
+          </div>
+          <div class="form-group">
+            <label>颜色</label>
+            <input type="color" id="prize-color" value="#ef4444">
+          </div>
+          <div class="form-group">
+            <label>基础概率 (%)</label>
+            <input type="number" id="prize-probability" placeholder="请输入概率" min="0" max="100" step="0.01" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePrizeModal()">取消</button>
+        <button class="btn btn-primary" onclick="savePrize()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lottery-overlay" id="lottery-overlay" style="display:none">
+    <div class="lottery-container">
+      <div class="lottery-header">
+        <h3>🎰 幸运大转盘</h3>
+        <button class="lottery-close" onclick="closeLottery()">✕</button>
+      </div>
+      <div class="lottery-wheel-wrapper">
+        <div class="lottery-wheel" id="lottery-wheel"></div>
+        <div class="lottery-pointer"></div>
+        <button class="btn btn-lottery-spin" id="btn-spin" onclick="spinWheel()">开始抽奖</button>
+      </div>
+      <div class="lottery-result" id="lottery-result" style="display:none">
+        <div class="result-emoji"></div>
+        <div class="result-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="modal" id="modal" style="display:none">
+    <div class="modal-content" id="modal-content"></div>
+  </div>
+
+  <script src="js/state.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/exam.js"></script>
+  <script src="js/welcome.js"></script>
+  <script src="js/lottery.js"></script>
+  <script src="js/manage.js"></script>
+  <script src="js/wrong-answers.js"></script>
+  <script src="js/reading-exam.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
