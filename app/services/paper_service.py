@@ -1,84 +1,64 @@
 from __future__ import annotations
 import logging
-
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.exam_paper import ExamPaper
+import asyncpg
 
 logger = logging.getLogger("exam_system")
 
 
-async def get_all_papers(db: AsyncSession, user_name: str = None) -> list[dict]:
-    sql = (
-        select(
-            ExamPaper,
-        )
-        .order_by(ExamPaper.created_at.desc())
+async def get_all_papers(db: asyncpg.Connection, user_name: str = None) -> list[dict]:
+    rows = await db.fetch(
+        "SELECT ep.*, g.name as grade_name "
+        "FROM exam_papers ep LEFT JOIN grades g ON ep.grade_id = g.id "
+        "ORDER BY ep.created_at DESC"
     )
-    result = await db.execute(sql)
-    papers = result.scalars().all()
 
     data = []
-    for p in papers:
-        grade = await db.execute(
-            select(
-                __import__("app.models.grade", fromlist=["Grade"]).Grade.name
-            ).where(
-                __import__("app.models.grade", fromlist=["Grade"]).Grade.id == p.grade_id
-            )
-        )
-        grade_name = grade.scalar()
-        d = {
-            "id": p.id,
-            "name": p.name,
-            "grade_id": p.grade_id,
-            "source_file": p.source_file,
-            "question_count": p.question_count,
-            "created_at": p.created_at.isoformat() if p.created_at else None,
-            "grade_name": grade_name,
-            "done_count": 0,
-            "remaining_count": p.question_count,
-        }
+    for row in rows:
+        d = dict(row)
+        created_at = d.get("created_at")
+        d["created_at"] = created_at.isoformat() if created_at else None
+        d["done_count"] = 0
+        d["remaining_count"] = d.get("question_count", 0)
 
         if user_name:
-            count_sql = text(
-                "SELECT COUNT(DISTINCT ar.question_id) FROM answer_records ar "
+            count_row = await db.fetchrow(
+                "SELECT COUNT(DISTINCT ar.question_id) as cnt FROM answer_records ar "
                 "JOIN exam_records er ON ar.exam_id = er.id "
-                "WHERE er.user_name = :uname AND er.paper_id = :pid "
-                "AND er.status = 'completed' AND ar.is_correct = true"
+                "WHERE er.user_name = $1 AND er.paper_id = $2 "
+                "AND er.status = 'completed' AND ar.is_correct = true",
+                user_name, d["id"],
             )
-            count_result = await db.execute(count_sql, {"uname": user_name, "pid": p.id})
-            done = count_result.scalar() or 0
+            done = count_row["cnt"] if count_row else 0
             d["done_count"] = done
-            d["remaining_count"] = max(0, p.question_count - done)
+            d["remaining_count"] = max(0, d["question_count"] - done)
 
         data.append(d)
     return data
 
 
-async def find_by_id(db: AsyncSession, paper_id: int) -> ExamPaper | None:
-    return await db.get(ExamPaper, paper_id)
+async def find_by_id(db: asyncpg.Connection, paper_id: int) -> dict | None:
+    row = await db.fetchrow("SELECT * FROM exam_papers WHERE id = $1", paper_id)
+    return dict(row) if row else None
 
 
-async def find_by_source_file(db: AsyncSession, source_file: str) -> ExamPaper | None:
-    result = await db.execute(
-        select(ExamPaper).where(ExamPaper.source_file == source_file)
+async def find_by_source_file(db: asyncpg.Connection, source_file: str) -> dict | None:
+    row = await db.fetchrow("SELECT * FROM exam_papers WHERE source_file = $1", source_file)
+    return dict(row) if row else None
+
+
+async def create_paper(db: asyncpg.Connection, name: str, grade_id: int, source_file: str) -> dict:
+    row = await db.fetchrow(
+        "INSERT INTO exam_papers (name, grade_id, source_file, question_count) "
+        "VALUES ($1, $2, $3, 0) RETURNING *",
+        name, grade_id, source_file,
     )
-    return result.scalars().first()
-
-
-async def create_paper(db: AsyncSession, name: str, grade_id: int, source_file: str) -> ExamPaper:
-    paper = ExamPaper(name=name, grade_id=grade_id, source_file=source_file, question_count=0)
-    db.add(paper)
-    await db.commit()
-    await db.refresh(paper)
     logger.info(f"创建试卷: {name}, 年级ID: {grade_id}")
-    return paper
+    return dict(row)
 
 
-async def update_paper_count(db: AsyncSession, paper_id: int, count: int):
-    paper = await db.get(ExamPaper, paper_id)
-    if paper:
-        paper.question_count = count
-        await db.commit()
+async def update_paper_count(db: asyncpg.Connection, paper_id: int, count: int) -> None:
+    result = await db.execute(
+        "UPDATE exam_papers SET question_count = $1 WHERE id = $2",
+        count, paper_id,
+    )
+    logger.info(f"更新试卷题目计数: 试卷ID={paper_id}, 题目数={count}")

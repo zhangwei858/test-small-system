@@ -1,78 +1,68 @@
 from __future__ import annotations
 import logging
-from datetime import datetime
-
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.lottery_record import LotteryRecord
-from app.services import prize_service
+import asyncpg
 
 logger = logging.getLogger("exam_system")
 
 
-async def create_record(db: AsyncSession, exam_id: int, user_name: str, prize_name: str, prize_emoji: str) -> LotteryRecord:
-    record = LotteryRecord(
-        exam_id=exam_id,
-        user_name=user_name,
-        prize_name=prize_name,
-        prize_emoji=prize_emoji,
-        is_redeemed=False,
+async def create_record(
+    db: asyncpg.Connection, exam_id: int, user_name: str, prize_name: str, prize_emoji: str
+) -> dict:
+    row = await db.fetchrow(
+        "INSERT INTO lottery_records (exam_id, user_name, prize_name, prize_emoji, is_redeemed) "
+        "VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        exam_id, user_name, prize_name, prize_emoji, False,
     )
-    db.add(record)
-    await db.commit()
-    await db.refresh(record)
     logger.info(f"创建抽奖记录: 用户={user_name}, 奖项={prize_name}")
-    return record
+    return dict(row)
 
 
-async def find_by_user(db: AsyncSession, user_name: str) -> list[dict]:
-    sql = text(
+async def find_by_user(db: asyncpg.Connection, user_name: str) -> list[dict]:
+    rows = await db.fetch(
         "SELECT lr.*, er.total_score, er.grade_id, g.name as grade_name "
         "FROM lottery_records lr LEFT JOIN exam_records er ON lr.exam_id = er.id "
         "LEFT JOIN grades g ON er.grade_id = g.id "
-        "WHERE lr.user_name = :uname ORDER BY lr.created_at DESC"
+        "WHERE lr.user_name = $1 ORDER BY lr.created_at DESC",
+        user_name,
     )
-    result = await db.execute(sql, {"uname": user_name})
-    return [dict(row) for row in result.mappings().all()]
+    return [dict(r) for r in rows]
 
 
-async def find_by_exam(db: AsyncSession, exam_id: int) -> list[LotteryRecord]:
-    result = await db.execute(select(LotteryRecord).where(LotteryRecord.exam_id == exam_id))
-    return list(result.scalars().all())
+async def find_by_exam(db: asyncpg.Connection, exam_id: int) -> list[dict]:
+    rows = await db.fetch("SELECT * FROM lottery_records WHERE exam_id = $1", exam_id)
+    return [dict(r) for r in rows]
 
 
-async def find_all(db: AsyncSession) -> list[dict]:
-    sql = text(
+async def find_all(db: asyncpg.Connection) -> list[dict]:
+    rows = await db.fetch(
         "SELECT lr.*, er.total_score, er.grade_id, g.name as grade_name, er.user_name as exam_user_name "
         "FROM lottery_records lr LEFT JOIN exam_records er ON lr.exam_id = er.id "
         "LEFT JOIN grades g ON er.grade_id = g.id ORDER BY lr.created_at DESC"
     )
-    result = await db.execute(sql)
-    return [dict(row) for row in result.mappings().all()]
+    return [dict(r) for r in rows]
 
 
-async def find_by_id(db: AsyncSession, record_id: int) -> LotteryRecord | None:
-    return await db.get(LotteryRecord, record_id)
+async def find_by_id(db: asyncpg.Connection, record_id: int) -> dict | None:
+    row = await db.fetchrow("SELECT * FROM lottery_records WHERE id = $1", record_id)
+    return dict(row) if row else None
 
 
-async def update_redeem_status(db: AsyncSession, record_id: int, is_redeemed: bool) -> LotteryRecord | None:
-    record = await db.get(LotteryRecord, record_id)
-    if not record:
-        return None
-    record.is_redeemed = is_redeemed
-    record.redeemed_at = datetime.now() if is_redeemed else None
-    await db.commit()
-    await db.refresh(record)
-    return record
+async def update_redeem_status(db: asyncpg.Connection, record_id: int, is_redeemed: bool) -> dict | None:
+    import datetime
+
+    redeemed_at = datetime.datetime.now() if is_redeemed else None
+    row = await db.fetchrow(
+        "UPDATE lottery_records SET is_redeemed = $1, redeemed_at = $2 WHERE id = $3 RETURNING *",
+        is_redeemed, redeemed_at, record_id,
+    )
+    return dict(row) if row else None
 
 
-async def check_can_draw(db: AsyncSession, user_name: str, grade_id: int) -> bool:
-    sql = text(
+async def check_can_draw(db: asyncpg.Connection, user_name: str, grade_id: int) -> bool:
+    row = await db.fetchrow(
         "SELECT COUNT(*) as count FROM lottery_records lr "
         "JOIN exam_records er ON lr.exam_id = er.id "
-        "WHERE lr.user_name = :uname AND er.grade_id = :gid"
+        "WHERE lr.user_name = $1 AND er.grade_id = $2",
+        user_name, grade_id,
     )
-    result = await db.execute(sql, {"uname": user_name, "gid": grade_id})
-    count = result.scalar()
-    return count == 0
+    return row["count"] == 0

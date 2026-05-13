@@ -3,11 +3,10 @@ import os
 import logging
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.schemas.question import QuestionCreate, QuestionUpdate
-from app.schemas.common import ApiResponse, PaginationInfo
+from app.schemas.common import ApiResponse
 from app.services import question_service
 
 logger = logging.getLogger("exam_system")
@@ -20,7 +19,7 @@ async def get_questions(
     type_id: int | None = None,
     page: int = 1,
     limit: int = 10,
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
 ):
     offset = (page - 1) * limit
     filters = {"limit": limit, "offset": offset}
@@ -34,7 +33,7 @@ async def get_questions(
 
 
 @router.get("/{question_id}")
-async def get_question(question_id: int, db: AsyncSession = Depends(get_db)):
+async def get_question(question_id: int, db = Depends(get_db)):
     q = await question_service.find_by_id(db, question_id)
     if not q:
         return ApiResponse(code=404, message="题目不存在")
@@ -42,23 +41,23 @@ async def get_question(question_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("")
-async def create_question(data: QuestionCreate, db: AsyncSession = Depends(get_db)):
+async def create_question(data: QuestionCreate, db = Depends(get_db)):
     if not data.grade_id or not data.type_id or not data.content or not data.answer:
         return ApiResponse(code=400, message="缺少必填字段")
     q = await question_service.create_question(db, data)
-    return ApiResponse(code=201, message="题目创建成功", data={"id": q.id, "content": q.content})
+    return ApiResponse(code=201, message="题目创建成功", data={"id": q["id"], "content": q["content"]})
 
 
 @router.put("/{question_id}")
-async def update_question(question_id: int, data: QuestionUpdate, db: AsyncSession = Depends(get_db)):
+async def update_question(question_id: int, data: QuestionUpdate, db = Depends(get_db)):
     q = await question_service.update_question(db, question_id, data)
     if not q:
         return ApiResponse(code=404, message="题目不存在")
-    return ApiResponse(message="题目更新成功", data={"id": q.id})
+    return ApiResponse(message="题目更新成功", data={"id": q["id"]})
 
 
 @router.delete("/{question_id}")
-async def delete_question(question_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_question(question_id: int, db = Depends(get_db)):
     q = await question_service.delete_question(db, question_id)
     if not q:
         return ApiResponse(code=404, message="题目不存在")
@@ -70,7 +69,7 @@ async def import_questions(
     grade_id: int = Form(...),
     type_id: int | None = Form(None),
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
 ):
     if not file.filename.endswith(".txt"):
         return ApiResponse(code=400, message="只支持TXT文件")
@@ -93,7 +92,7 @@ async def import_questions(
 
 
 @router.post("/scan-bank")
-async def scan_bank(db: AsyncSession = Depends(get_db)):
+async def scan_bank(db = Depends(get_db)):
     result = await question_service.scan_question_bank(db)
     if result is None:
         return ApiResponse(code=400, message="题库文件夹不存在")
@@ -101,12 +100,12 @@ async def scan_bank(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/clear")
-async def clear_bank(db: AsyncSession = Depends(get_db)):
+async def clear_bank(db = Depends(get_db)):
     await question_service.clear_question_bank(db)
     return ApiResponse(message="题库清空成功")
 
 
 @router.post("/reset")
-async def reset_bank(db: AsyncSession = Depends(get_db)):
+async def reset_bank(db = Depends(get_db)):
     result = await question_service.reset_and_rescan(db)
     return ApiResponse(message="题库重置并重扫完成", data=result)

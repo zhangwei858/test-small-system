@@ -1,14 +1,14 @@
 from __future__ import annotations
 from typing import AsyncGenerator
+import asyncpg
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.config.database import AsyncSessionLocal
+from app.core.database import get_pool
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+async def get_db() -> AsyncGenerator[asyncpg.Connection, None]:
+    pool = get_pool()
+    async with pool.acquire() as conn:
         try:
-            yield session
+            yield conn
         finally:
-            await session.close()
+            await conn.close()

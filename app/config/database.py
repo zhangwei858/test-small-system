@@ -1,31 +1,4 @@
 from __future__ import annotations
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
+from app.core.database import create_pool, close_pool, get_pool
 
-from app.config.settings import settings
-
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    pool_size=20,
-    max_overflow=0,
-    pool_recycle=300,
-    pool_pre_ping=True,
-)
-
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-async def get_db() -> AsyncSession:
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+__all__ = ["create_pool", "close_pool", "get_pool"]

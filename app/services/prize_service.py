@@ -1,72 +1,65 @@
 from __future__ import annotations
 import logging
-import random
-
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.prize import Prize
-from app.schemas.prize import PrizeCreate, PrizeUpdate
+import asyncpg
 
 logger = logging.getLogger("exam_system")
 
 
-async def get_all_prizes(db: AsyncSession) -> list[Prize]:
-    result = await db.execute(select(Prize).order_by(Prize.id))
-    return list(result.scalars().all())
+async def get_all_prizes(db: asyncpg.Connection) -> list[dict]:
+    rows = await db.fetch("SELECT * FROM prizes ORDER BY id")
+    return [dict(r) for r in rows]
 
 
-async def find_by_id(db: AsyncSession, prize_id: int) -> Prize | None:
-    return await db.get(Prize, prize_id)
+async def find_by_id(db: asyncpg.Connection, prize_id: int) -> dict | None:
+    row = await db.fetchrow("SELECT * FROM prizes WHERE id = $1", prize_id)
+    return dict(row) if row else None
 
 
-async def create_prize(db: AsyncSession, data: PrizeCreate) -> Prize:
-    prize = Prize(
-        name=data.name,
-        emoji=data.emoji,
-        color=data.color,
-        base_probability=data.base_probability,
-        is_default=False,
+async def create_prize(db: asyncpg.Connection, data) -> dict:
+    row = await db.fetchrow(
+        "INSERT INTO prizes (name, emoji, color, base_probability, is_default) "
+        "VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        data.name, data.emoji, data.color, data.base_probability, False,
     )
-    db.add(prize)
-    await db.commit()
-    await db.refresh(prize)
-    logger.info(f"创建奖项: {prize.name}, 概率: {prize.base_probability}")
-    return prize
+    logger.info(f"创建奖项: {row['name']}, 概率: {row['base_probability']}")
+    return dict(row)
 
 
-async def update_prize(db: AsyncSession, prize_id: int, data: PrizeUpdate) -> Prize | None:
-    prize = await db.get(Prize, prize_id)
-    if not prize:
+async def update_prize(db: asyncpg.Connection, prize_id: int, data) -> dict | None:
+    import datetime
+
+    existing = await find_by_id(db, prize_id)
+    if not existing:
         return None
-    update_data = data.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(prize, key, value)
-    prize.updated_at = __import__("datetime").datetime.now()
-    await db.commit()
-    await db.refresh(prize)
-    return prize
+
+    name = data.name if data.name is not None else existing["name"]
+    emoji = data.emoji if data.emoji is not None else existing["emoji"]
+    color = data.color if data.color is not None else existing["color"]
+    base_probability = data.base_probability if data.base_probability is not None else float(existing["base_probability"])
+
+    row = await db.fetchrow(
+        "UPDATE prizes SET name = $1, emoji = $2, color = $3, base_probability = $4, updated_at = $5 "
+        "WHERE id = $6 RETURNING *",
+        name, emoji, color, base_probability, datetime.datetime.now(), prize_id,
+    )
+    return dict(row)
 
 
-async def delete_prize(db: AsyncSession, prize_id: int) -> Prize | None:
-    prize = await db.get(Prize, prize_id)
-    if not prize or prize.is_default:
+async def delete_prize(db: asyncpg.Connection, prize_id: int) -> dict | None:
+    existing = await find_by_id(db, prize_id)
+    if not existing or existing.get("is_default"):
         return None
-    await db.delete(prize)
-    await db.commit()
-    return prize
+    row = await db.fetchrow("DELETE FROM prizes WHERE id = $1 RETURNING *", prize_id)
+    return dict(row) if row else None
 
 
-async def get_total_probability(db: AsyncSession) -> float:
-    result = await db.execute(select(func.sum(Prize.base_probability)))
-    total = result.scalar()
-    return float(total) if total else 0
+async def get_total_probability(db: asyncpg.Connection) -> float:
+    row = await db.fetchrow("SELECT COALESCE(SUM(base_probability), 0) as total FROM prizes")
+    return float(row["total"])
 
 
-async def calculate_dynamic_probabilities(db: AsyncSession, question_count: int = 10) -> list[dict]:
+async def calculate_dynamic_probabilities(db: asyncpg.Connection, question_count: int = 10) -> list[dict]:
     prizes = await get_all_prizes(db)
-
-    default_prize = next((p for p in prizes if p.is_default), None)
 
     bonus_probability = 0
     if question_count < 10:
@@ -74,27 +67,19 @@ async def calculate_dynamic_probabilities(db: AsyncSession, question_count: int 
 
     adjusted = []
     for p in prizes:
-        if p.is_default:
-            dynamic = min(float(p.base_probability) + bonus_probability, 95)
-            adjusted.append({
-                "id": p.id,
-                "name": p.name,
-                "emoji": p.emoji,
-                "color": p.color,
-                "base_probability": float(p.base_probability),
-                "is_default": p.is_default,
-                "dynamic_probability": dynamic,
-            })
+        if p["is_default"]:
+            dynamic = min(float(p["base_probability"]) + bonus_probability, 95)
         else:
-            adjusted.append({
-                "id": p.id,
-                "name": p.name,
-                "emoji": p.emoji,
-                "color": p.color,
-                "base_probability": float(p.base_probability),
-                "is_default": p.is_default,
-                "dynamic_probability": float(p.base_probability),
-            })
+            dynamic = float(p["base_probability"])
+        adjusted.append({
+            "id": p["id"],
+            "name": p["name"],
+            "emoji": p["emoji"],
+            "color": p["color"],
+            "base_probability": float(p["base_probability"]),
+            "is_default": p["is_default"],
+            "dynamic_probability": dynamic,
+        })
 
     total_without_default = sum(p["dynamic_probability"] for p in adjusted if not p["is_default"])
     remaining = 100 - total_without_default
@@ -105,7 +90,9 @@ async def calculate_dynamic_probabilities(db: AsyncSession, question_count: int 
     return adjusted
 
 
-async def draw(db: AsyncSession, question_count: int = 10) -> dict | None:
+async def draw(db: asyncpg.Connection, question_count: int = 10) -> dict | None:
+    import random
+
     prizes = await calculate_dynamic_probabilities(db, question_count)
 
     rand = random.random() * 100

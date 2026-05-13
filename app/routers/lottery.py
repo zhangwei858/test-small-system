@@ -2,7 +2,6 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.schemas.lottery import LotteryDraw, LotteryDemo, RedeemUpdate
@@ -15,17 +14,17 @@ router = APIRouter(prefix="/api/lottery", tags=["抽奖系统"])
 
 
 @router.get("/prizes")
-async def get_lottery_prizes(db: AsyncSession = Depends(get_db)):
+async def get_lottery_prizes(db = Depends(get_db)):
     prizes = await prize_service.get_all_prizes(db)
     return ApiResponse(data={
         "prizes": [
             {
-                "id": p.id,
-                "name": p.name,
-                "emoji": p.emoji,
-                "color": p.color,
-                "base_probability": float(p.base_probability),
-                "is_default": p.is_default,
+                "id": p["id"],
+                "name": p["name"],
+                "emoji": p["emoji"],
+                "color": p["color"],
+                "base_probability": float(p["base_probability"]),
+                "is_default": p["is_default"],
             }
             for p in prizes
         ],
@@ -33,7 +32,7 @@ async def get_lottery_prizes(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/draw")
-async def draw_lottery(data: LotteryDraw, db: AsyncSession = Depends(get_db)):
+async def draw_lottery(data: LotteryDraw, db = Depends(get_db)):
     if not data.exam_id or not data.user_name:
         return ApiResponse(code=400, message="缺少必要参数")
 
@@ -66,19 +65,19 @@ async def draw_lottery(data: LotteryDraw, db: AsyncSession = Depends(get_db)):
     return ApiResponse(message="抽奖成功", data={
         "prize": {"name": prize["name"], "emoji": prize.get("emoji"), "color": prize.get("color")},
         "record": {
-            "id": record.id,
-            "exam_id": record.exam_id,
-            "user_name": record.user_name,
-            "prize_name": record.prize_name,
-            "prize_emoji": record.prize_emoji,
-            "is_redeemed": record.is_redeemed,
+            "id": record["id"],
+            "exam_id": record["exam_id"],
+            "user_name": record["user_name"],
+            "prize_name": record["prize_name"],
+            "prize_emoji": record["prize_emoji"],
+            "is_redeemed": record["is_redeemed"],
         },
         "questionCount": question_count,
     })
 
 
 @router.get("/records")
-async def get_user_records(user_name: str, db: AsyncSession = Depends(get_db)):
+async def get_user_records(user_name: str, db = Depends(get_db)):
     if not user_name:
         return ApiResponse(code=400, message="请提供用户名")
     records = await lottery_service.find_by_user(db, user_name)
@@ -86,13 +85,13 @@ async def get_user_records(user_name: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/records/all")
-async def get_all_records(db: AsyncSession = Depends(get_db)):
+async def get_all_records(db = Depends(get_db)):
     records = await lottery_service.find_all(db)
     return ApiResponse(data=records)
 
 
 @router.put("/redeem")
-async def update_redeem_status(data: RedeemUpdate, db: AsyncSession = Depends(get_db)):
+async def update_redeem_status(data: RedeemUpdate, db = Depends(get_db)):
     if not data.id or data.is_redeemed is None:
         return ApiResponse(code=400, message="缺少必要参数")
     record = await lottery_service.find_by_id(db, data.id)
@@ -100,14 +99,14 @@ async def update_redeem_status(data: RedeemUpdate, db: AsyncSession = Depends(ge
         return ApiResponse(code=404, message="抽奖记录不存在")
     updated = await lottery_service.update_redeem_status(db, data.id, data.is_redeemed)
     return ApiResponse(message="兑现状态更新成功", data={
-        "id": updated.id,
-        "is_redeemed": updated.is_redeemed,
-        "redeemed_at": updated.redeemed_at.isoformat() if updated.redeemed_at else None,
+        "id": updated["id"],
+        "is_redeemed": updated["is_redeemed"],
+        "redeemed_at": updated["redeemed_at"].isoformat() if updated.get("redeemed_at") else None,
     })
 
 
 @router.post("/demo")
-async def demo_draw(data: LotteryDemo, db: AsyncSession = Depends(get_db)):
+async def demo_draw(data: LotteryDemo, db = Depends(get_db)):
     if data.user_name != "张伟":
         return ApiResponse(code=403, message="只有管理员张伟可以使用演示功能")
     prize = await prize_service.draw(db, 10)

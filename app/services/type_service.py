@@ -1,18 +1,15 @@
 from __future__ import annotations
 import logging
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.question_type import QuestionType
+import asyncpg
 
 logger = logging.getLogger("exam_system")
 
 
-async def get_all_types(db: AsyncSession) -> list[QuestionType]:
-    result = await db.execute(select(QuestionType).order_by(QuestionType.id))
-    return list(result.scalars().all())
+async def get_all_types(db: asyncpg.Connection) -> list[dict]:
+    rows = await db.fetch("SELECT * FROM question_types ORDER BY id")
+    return [dict(r) for r in rows]
 
 
-async def find_by_id(db: AsyncSession, type_id: int) -> QuestionType | None:
-    return await db.get(QuestionType, type_id)
+async def find_by_id(db: asyncpg.Connection, type_id: int) -> dict | None:
+    row = await db.fetchrow("SELECT * FROM question_types WHERE id = $1", type_id)
+    return dict(row) if row else None

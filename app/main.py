@@ -6,13 +6,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.config.settings import settings
 from app.config.logger import logger
+from app.core.database import create_pool, close_pool
 from app.middleware.performance import PerformanceMiddleware
 from app.routers import (
     users, questions, exams, grades, types, papers,
@@ -23,8 +23,8 @@ limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="小学考试评测系统",
-    description="Python + FastAPI 重构版",
-    version="2.0.0",
+    description="Python + FastAPI 重构版（纯显式 SQL）",
+    version="2.1.0",
 )
 
 app.state.limiter = limiter
@@ -139,12 +139,14 @@ async def serve_spa(full_path: str):
 
 @app.on_event("startup")
 async def startup():
+    await create_pool()
     logger.info(f"服务器启动 - 环境: {settings.NODE_ENV}")
     logger.info(f"数据库: {settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}")
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    await close_pool()
     logger.info("服务器关闭")
 
 
