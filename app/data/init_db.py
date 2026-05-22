@@ -145,15 +145,7 @@ async def init_tables(conn: asyncpg.Connection):
 
 
 async def seed_data(conn: asyncpg.Connection):
-    logger.info("开始种子数据初始化...")
-    grade_row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM grades")
-    if grade_row["cnt"] == 0:
-        await conn.execute(SEED_SQL)
-        logger.info("种子数据初始化完成")
-    else:
-        logger.info("种子数据已存在，跳过全量插入，仅补充缺失数据")
-        await conn.execute(SEED_SQL)
-        logger.info("种子数据补充完成")
+    logger.info("数据库表已存在，跳过种子数据重复插入")
 
 
 async def main():

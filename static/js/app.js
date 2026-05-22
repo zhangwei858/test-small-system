@@ -968,9 +968,9 @@ function renderQuestion() {
 
   let answerHtml = '';
 
-  if (q.type_name === '选择题' || q.type_name === '识字题' || q.type_name === '阅读题' || (q.options && q.options.length > 0)) {
-    const options = parseOptions(q.options);
-    answerHtml = `<div class="option-list">${options.map((opt, idx) => {
+  const parsedOptions = parseOptions(q.options);
+  if (q.type_name === '选择题' || q.type_name === '识字题' || q.type_name === '阅读题' || (parsedOptions && parsedOptions.length > 0)) {
+    answerHtml = `<div class="option-list">${parsedOptions.map((opt, idx) => {
       const letter = String.fromCharCode(65 + idx);
       let cls = 'option-item';
       if (isAnswered && letter === userAnswer) {
@@ -1000,8 +1000,7 @@ function renderQuestion() {
     }).join('')}</div>`;
   } else {
     answerHtml = `<input type="text" class="fill-input" id="fill-answer"
-      placeholder="请输入答案" value="${userAnswer || ''}"
-      oninput="state.answers[${q.id}] = this.value">`;
+      placeholder="请输入答案" value="${userAnswer || ''}">`;
   }
 
   document.getElementById('question-area').innerHTML = `
@@ -1011,6 +1010,14 @@ function renderQuestion() {
     <div class="question-content">${q.content}</div>
     <div class="answer-area">${answerHtml}</div>
   `;
+
+  // 为填空/计算题绑定输入事件
+  const fillInput = document.getElementById('fill-answer');
+  if (fillInput) {
+    fillInput.addEventListener('input', function() {
+      state.answers[q.id] = this.value;
+    });
+  }
 
   document.getElementById('btn-submit').style.display = isAnswered ? 'none' : '';
   document.getElementById('btn-next').style.display = 'none';
