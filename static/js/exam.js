@@ -64,7 +64,11 @@ function renderQuestion() {
   let answerHtml = '';
 
   const parsedOptions = parseOptions(q.options);
-  if (q.type_name === '选择题' || q.type_name === '识字题' || q.type_name === '阅读题' || (parsedOptions && parsedOptions.length > 0)) {
+  const hasOptions = parsedOptions && parsedOptions.length > 0;
+  const isOptionType = q.type_name === '选择题' || q.type_name === '识字题' || q.type_name === '阅读题';
+  const isFillType = q.type_name === '计算题' || q.type_name === '填空题';
+
+  if (isOptionType || (hasOptions && !isFillType)) {
     answerHtml = `<div class="option-list">${parsedOptions.map((opt, idx) => {
       const letter = String.fromCharCode(65 + idx);
       let cls = 'option-item';
@@ -94,8 +98,9 @@ function renderQuestion() {
       </div>`;
     }).join('')}</div>`;
   } else {
-    answerHtml = `<input type="text" class="fill-input" id="fill-answer"
-      placeholder="请输入答案" value="${userAnswer || ''}">`;
+    answerHtml = `<div class="fill-label"><span class="fill-icon">✏️</span>请在下方输入你的答案：</div>
+      <input type="text" class="fill-input" id="fill-answer"
+      placeholder="在这里输入答案..." value="${userAnswer || ''}">`;
   }
 
   document.getElementById('question-area').innerHTML = `
@@ -106,12 +111,13 @@ function renderQuestion() {
     <div class="answer-area">${answerHtml}</div>
   `;
 
-  // 为填空/计算题绑定输入事件
+  // 为填空/计算题绑定输入事件并自动聚焦
   const fillInput = document.getElementById('fill-answer');
   if (fillInput) {
     fillInput.addEventListener('input', function() {
       state.answers[q.id] = this.value;
     });
+    setTimeout(() => fillInput.focus(), 100);
   }
 
   document.getElementById('btn-submit').style.display = isAnswered ? 'none' : '';
