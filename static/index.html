@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>考试评测系统</title>
-  <link rel="stylesheet" href="css/style.css?v=20260523">
+  <link rel="stylesheet" href="css/style.css?v=20260619">
 </head>
 <body>
   <div class="background-container" id="background-container"></div>
@@ -253,6 +253,7 @@
           <div class="header-actions">
             <button class="btn btn-secondary" onclick="navigateTo('home')">← 返回首页</button>
             <button class="btn btn-demo" id="btn-demo-lottery" style="display:none" onclick="showDemoLottery()">🎲 演示抽奖</button>
+            <button class="btn btn-primary" id="btn-admin-draw" style="display:none" onclick="showAdminDrawDialog()">🎯 指定抽奖</button>
           </div>
         </div>
         
@@ -301,7 +302,10 @@
               </div>
             </div>
           </div>
-          <button class="btn btn-primary btn-add-prize" onclick="showAddPrizeModal()">+ 添加奖项</button>
+          <div class="prize-actions">
+            <button class="btn btn-primary" onclick="showAddPrizeModal()">+ 添加奖项</button>
+            <button class="btn btn-special" onclick="showAdminDrawDialog()">🎯 指定用户抽奖</button>
+          </div>
           <div class="prize-records-list" id="prize-records-list"></div>
         </div>
       </section>
@@ -437,21 +441,40 @@
     </div>
   </div>
 
+  <div class="lottery-overlay" id="admin-lottery-overlay" style="display:none">
+    <div class="lottery-container">
+      <div class="lottery-header">
+        <h3>🎯 管理员指定抽奖</h3>
+        <button class="lottery-close" onclick="closeAdminLottery()">✕</button>
+      </div>
+      <div class="admin-draw-target" id="admin-draw-target-info" style="text-align:center;color:#fff;margin-bottom:12px;font-size:16px"></div>
+      <div class="lottery-wheel-wrapper">
+        <div class="lottery-wheel" id="admin-lottery-wheel"></div>
+        <div class="lottery-pointer"></div>
+        <button class="btn btn-lottery-spin" id="btn-admin-spin" onclick="spinAdminWheel()">开始抽奖</button>
+      </div>
+      <div class="lottery-result" id="admin-lottery-result" style="display:none">
+        <div class="result-emoji"></div>
+        <div class="result-text"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <div class="modal" id="modal" style="display:none">
     <div class="modal-content" id="modal-content"></div>
   </div>
 
-  <script src="js/state.js?v=20260523"></script>
-  <script src="js/api.js?v=20260523"></script>
-  <script src="js/utils.js?v=20260523"></script>
-  <script src="js/exam.js?v=20260523"></script>
-  <script src="js/welcome.js?v=20260523"></script>
-  <script src="js/lottery.js?v=20260523"></script>
-  <script src="js/manage.js?v=20260523"></script>
-  <script src="js/wrong-answers.js?v=20260523"></script>
-  <script src="js/reading-exam.js?v=20260523"></script>
-  <script src="js/main.js?v=20260523"></script>
+  <script src="js/state.js?v=20260620"></script>
+  <script src="js/api.js?v=20260620"></script>
+  <script src="js/utils.js?v=20260620"></script>
+  <script src="js/exam.js?v=20260620"></script>
+  <script src="js/welcome.js?v=20260620"></script>
+  <script src="js/lottery.js?v=20260620"></script>
+  <script src="js/manage.js?v=20260620"></script>
+  <script src="js/wrong-answers.js?v=20260620"></script>
+  <script src="js/reading-exam.js?v=20260620"></script>
+  <script src="js/main.js?v=20260620"></script>
 </body>
 </html>

@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS prizes (
 
 CREATE TABLE IF NOT EXISTS lottery_records (
     id SERIAL PRIMARY KEY,
-    exam_id INTEGER NOT NULL REFERENCES exam_records(id) ON DELETE CASCADE,
+    exam_id INTEGER REFERENCES exam_records(id) ON DELETE CASCADE,
     user_name VARCHAR(100) NOT NULL,
     prize_name VARCHAR(100) NOT NULL,
     prize_emoji VARCHAR(10),
@@ -105,6 +105,17 @@ CREATE TABLE IF NOT EXISTS lottery_records (
     redeemed_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 兼容旧库：允许 exam_id 为空（管理员指定抽奖不关联考试）
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='lottery_records' AND column_name='exam_id' AND is_nullable='NO'
+    ) THEN
+        ALTER TABLE lottery_records ALTER COLUMN exam_id DROP NOT NULL;
+    END IF;
+END $$;
 """
 
 SEED_SQL = """

@@ -8,7 +8,7 @@ logger = logging.getLogger("exam_system")
 async def get_wrong_answers(db: asyncpg.Connection, user_name: str, page: int = 1, limit: int = 10) -> dict:
     offset = (page - 1) * limit
     rows = await db.fetch(
-        "SELECT wa.id, q.content, q.options, q.answer as correct_answer, wa.user_answer, "
+        "SELECT wa.id, wa.question_id, q.content, q.options, q.answer as correct_answer, wa.user_answer, "
         "qt.name as type_name, q.points, wa.created_at "
         "FROM wrong_answers wa JOIN questions q ON wa.question_id = q.id "
         "LEFT JOIN question_types qt ON q.type_id = qt.id "

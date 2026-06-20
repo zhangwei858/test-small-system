@@ -17,6 +17,19 @@ async def create_record(
     return dict(row)
 
 
+async def create_admin_record(
+    db: asyncpg.Connection, user_name: str, prize_name: str, prize_emoji: str
+) -> dict:
+    """管理员指定抽奖：exam_id 为 NULL，不关联考试"""
+    row = await db.fetchrow(
+        "INSERT INTO lottery_records (exam_id, user_name, prize_name, prize_emoji, is_redeemed) "
+        "VALUES (NULL, $1, $2, $3, $4) RETURNING *",
+        user_name, prize_name, prize_emoji, False,
+    )
+    logger.info(f"管理员指定抽奖记录: 用户={user_name}, 奖项={prize_name}")
+    return dict(row)
+
+
 async def find_by_user(db: asyncpg.Connection, user_name: str) -> list[dict]:
     rows = await db.fetch(
         "SELECT lr.*, er.total_score, er.grade_id, g.name as grade_name "

@@ -1735,6 +1735,24 @@ select.name-input-large {
   box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
 }
 
+.btn-special {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+
+.btn-special:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+}
+
+.prize-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
 .tabs-container {
   display: flex;
   gap: 8px;

@@ -250,6 +250,7 @@ function logout() {
 function showUserInfo() {
   const ui = document.getElementById('user-info'), un = document.getElementById('user-name'), ur = document.getElementById('user-role');
   const ab = document.getElementById('admin-nav-btn'), mb = document.getElementById('manage-nav-btn'), rb = document.getElementById('redeem-manage-nav-btn'), lb = document.getElementById('login-btn-container');
+  const adb = document.getElementById('btn-admin-draw');
   if (window.state.userName && un && ur) {
     un.textContent = window.state.userName; ur.textContent = window.state.userRole === 'admin'?'管理员':'考生';
     ur.style.background = window.state.userRole === 'admin'?'rgba(239,68,68,0.8)':'rgba(16,185,129,0.8)';
@@ -257,6 +258,7 @@ function showUserInfo() {
     if (ab) ab.style.display=window.state.userRole==='admin'?'block':'none';
     if (mb) mb.style.display=(window.state.userName==='张伟'||window.state.userRole==='admin')?'block':'none';
     if (rb) rb.style.display=window.state.userRole==='admin'?'block':'none';
+    if (adb) adb.style.display=window.state.userRole==='admin'?'inline-block':'none';
   }
 }
 

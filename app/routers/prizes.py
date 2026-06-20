@@ -33,6 +33,12 @@ async def get_prizes(db = Depends(get_db)):
     })
 
 
+@router.get("/dynamic")
+async def get_dynamic_probabilities(question_count: int = 10, db = Depends(get_db)):
+    prizes = await prize_service.calculate_dynamic_probabilities(db, question_count)
+    return ApiResponse(data=prizes)
+
+
 @router.get("/{prize_id}")
 async def get_prize(prize_id: int, db = Depends(get_db)):
     p = await prize_service.find_by_id(db, prize_id)
@@ -83,9 +89,3 @@ async def delete_prize(prize_id: int, db = Depends(get_db)):
     if not p:
         return ApiResponse(code=400, message="无法删除默认奖项或奖项不存在")
     return ApiResponse(message="奖项删除成功")
-
-
-@router.get("/dynamic")
-async def get_dynamic_probabilities(question_count: int = 10, db = Depends(get_db)):
-    prizes = await prize_service.calculate_dynamic_probabilities(db, question_count)
-    return ApiResponse(data=prizes)

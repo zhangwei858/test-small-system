@@ -4,9 +4,9 @@ import logging
 from fastapi import APIRouter, Depends
 
 from app.dependencies import get_db
-from app.schemas.lottery import LotteryDraw, LotteryDemo, RedeemUpdate
+from app.schemas.lottery import LotteryDraw, LotteryDemo, RedeemUpdate, AdminDraw
 from app.schemas.common import ApiResponse
-from app.services import lottery_service, prize_service
+from app.services import lottery_service, prize_service, user_service
 from app.services.exam_service import _find_exam_by_id, check_paper_already_perfect
 
 logger = logging.getLogger("exam_system")
@@ -115,4 +115,40 @@ async def demo_draw(data: LotteryDemo, db = Depends(get_db)):
     return ApiResponse(message="演示抽奖成功", data={
         "prize": {"name": prize["name"], "emoji": prize.get("emoji"), "color": prize.get("color")},
         "is_demo": True,
+    })
+
+
+@router.post("/admin-draw")
+async def admin_draw(data: AdminDraw, db = Depends(get_db)):
+    """管理员指定用户抽奖（无需考试满分，直接抽奖并保存记录）"""
+    if not data.admin_name or not data.target_user:
+        return ApiResponse(code=400, message="缺少必要参数")
+
+    is_admin = await user_service.is_admin(db, data.admin_name)
+    if not is_admin:
+        return ApiResponse(code=403, message="只有管理员可以指定抽奖")
+
+    target = await user_service.find_by_username(db, data.target_user)
+    if not target:
+        return ApiResponse(code=404, message="指定的用户不存在")
+
+    prize = await prize_service.draw(db, 10)
+    if not prize:
+        return ApiResponse(code=500, message="抽奖失败，无可用奖项")
+
+    record = await lottery_service.create_admin_record(
+        db, data.target_user, prize["name"], prize.get("emoji")
+    )
+
+    return ApiResponse(message="指定抽奖成功", data={
+        "prize": {"name": prize["name"], "emoji": prize.get("emoji"), "color": prize.get("color")},
+        "record": {
+            "id": record["id"],
+            "exam_id": record["exam_id"],
+            "user_name": record["user_name"],
+            "prize_name": record["prize_name"],
+            "prize_emoji": record["prize_emoji"],
+            "is_redeemed": record["is_redeemed"],
+        },
+        "is_admin_draw": True,
     })

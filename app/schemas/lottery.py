@@ -13,6 +13,11 @@ class LotteryDemo(BaseModel):
     user_name: str
 
 
+class AdminDraw(BaseModel):
+    admin_name: str
+    target_user: str
+
+
 class RedeemUpdate(BaseModel):
     id: int
     is_redeemed: bool

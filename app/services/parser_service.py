@@ -229,6 +229,7 @@ def _parse_natural(content: str, specified_grade_id: int | None = None, specifie
     pending_answer = None
     pending_type_id = specified_type_id or 1
     pending_points = 10
+    type_from_section = False  # 标记题型是否由章节标题设置
 
     for line in lines:
         line = line.strip()
@@ -243,14 +244,33 @@ def _parse_natural(content: str, specified_grade_id: int | None = None, specifie
         section_match = re.match(r'^[一二三四五六七八九十]+[、.．]\s*(.+)', line)
         if section_match:
             section_title = section_match.group(1)
-            if any(kw in section_title for kw in ['计算', '口算', '写得数', '竖式', '脱式', '直接']):
+            # 章节切换时，先保存上一题（使用旧题型，避免被新章节的题型影响）
+            if pending_question:
+                questions.append(QuestionCreate(
+                    grade_id=grade_id,
+                    type_id=pending_type_id,
+                    content=pending_question,
+                    options=pending_options if pending_options else None,
+                    answer=pending_answer or "",
+                    points=pending_points,
+                ))
+                pending_question = None
+                pending_options = []
+                pending_answer = None
+            # 计算题关键词：计算、口算、连加、连减、加减、数学等
+            if any(kw in section_title for kw in ['计算', '口算', '写得数', '竖式', '脱式', '直接', '连加', '连减', '加减混合', '加减']):
                 pending_type_id = specified_type_id or 7
+                type_from_section = True
             elif '选择' in section_title:
                 pending_type_id = specified_type_id or 1
+                type_from_section = True
             elif '判断' in section_title:
                 pending_type_id = specified_type_id or 3
+                type_from_section = True
             elif any(kw in section_title for kw in ['填空', '填一填']):
                 pending_type_id = specified_type_id or 2
+                type_from_section = True
+            # 未匹配关键词的章节标题不锁定题型，让内容自动检测
             sp_match = re.search(r'每题(\d+)分', section_title)
             if sp_match:
                 pending_points = int(sp_match.group(1))
@@ -270,12 +290,22 @@ def _parse_natural(content: str, specified_grade_id: int | None = None, specifie
 
             question_text = num_match.group(2).strip()
             pending_answer = None
+            pending_options = []
 
-            line_ans = re.search(r'[（(]\s*([^）)]+?)\s*[）)]\s*$', question_text)
-            if line_ans:
-                pending_answer = line_ans.group(1).strip()
-                question_text = question_text[:line_ans.start()].strip()
+            # 1. 识别 `→ 答案：X` 格式（如 "4 + ( 5 ) = 9    → 答案：5"）
+            arrow_ans = re.search(r'→\s*答案\s*[：:]\s*(\S+)', question_text)
+            if arrow_ans:
+                pending_answer = arrow_ans.group(1).strip()
+                question_text = question_text[:arrow_ans.start()].strip()
 
+            # 2. 检查判断题标记（√/×/对/错）
+            judge_match = re.search(r'[（(]\s*([√×对错])\s*[）)]', question_text)
+
+            # 3. 提取所有括号内容（用于填空题多空答案）
+            paren_matches = list(re.finditer(r'[（(]\s*([^）)]+?)\s*[）)]', question_text))
+            paren_contents = [m.group(1).strip() for m in paren_matches] if paren_matches else []
+
+            # 4. 识别选项
             opt_matches = list(re.finditer(
                 r'\b([A-D])\.\s*([^A-D]+?)(?=\s+[A-D]\.|\s*[（(]|$)',
                 question_text
@@ -286,13 +316,36 @@ def _parse_natural(content: str, specified_grade_id: int | None = None, specifie
             else:
                 pending_options = []
 
-            if "____" in question_text or "＿＿" in question_text or "___" in question_text:
-                pending_type_id = specified_type_id or 2
-            elif opt_matches:
-                pending_type_id = specified_type_id or 1
-            elif "（  ）" in question_text or "（）" in question_text or "(  )" in question_text or "()" in question_text:
-                pending_type_id = specified_type_id or 2
+            # 5. 题型检测（仅当未由章节标题设置时）
+            if not type_from_section:
+                if "____" in question_text or "＿＿" in question_text or "___" in question_text:
+                    pending_type_id = specified_type_id or 2
+                elif opt_matches:
+                    pending_type_id = specified_type_id or 1
+                elif judge_match:
+                    pending_type_id = specified_type_id or 3
+                elif paren_contents and re.search(r'[\d]+\s*[+\-×÷\u00d7\u00f7]\s*[\d]', question_text):
+                    # 包含计算符号和括号，识别为计算题
+                    pending_type_id = specified_type_id or 7
+                elif paren_contents:
+                    pending_type_id = specified_type_id or 2
 
+            # 6. 根据题型设置答案
+            if judge_match and (pending_type_id == 3 or not type_from_section):
+                # 判断题：提取 √/× 作为答案，忽略其他括号（如解释说明）
+                if not pending_answer:
+                    pending_answer = judge_match.group(1)
+                # 仅从题目中移除判断标记
+                question_text = question_text[:judge_match.start()] + question_text[judge_match.end():]
+                question_text = question_text.strip()
+            elif paren_contents and pending_type_id in (2, 7):
+                # 填空题或计算题（括号格式）：提取所有括号内容作为答案
+                if not pending_answer:
+                    pending_answer = '|'.join(paren_contents) if len(paren_contents) > 1 else paren_contents[0]
+                # 将括号内容替换为空格（显示为空括号）
+                question_text = re.sub(r'([（(])\s*[^）)]+?\s*([）)])', r'\1 \2', question_text).strip()
+
+            # 7. 计算题：= 答案 格式（如 "25 × 16 = 400"）
             if not pending_answer and pending_type_id == 7:
                 eq_match = re.search(r'=\s*(\S+)', question_text)
                 if eq_match:
@@ -300,6 +353,23 @@ def _parse_natural(content: str, specified_grade_id: int | None = None, specifie
                     question_text = re.sub(r'\s*=\s*\S+$', ' = ______', question_text).strip()
 
             pending_question = question_text
+            continue
+
+        # 无题号的计算题（如 "25 × 2 = 50"）
+        calc_match = re.match(r'^(\d[\d\s+\-×÷\u00d7\u00f7.()]+?)\s*=\s*(\S+)$', line)
+        if calc_match and pending_type_id == 7:
+            if pending_question:
+                questions.append(QuestionCreate(
+                    grade_id=grade_id,
+                    type_id=pending_type_id,
+                    content=pending_question,
+                    options=pending_options if pending_options else None,
+                    answer=pending_answer or "",
+                    points=pending_points,
+                ))
+            pending_question = calc_match.group(1).strip() + " = ______"
+            pending_answer = calc_match.group(2).strip()
+            pending_options = []
             continue
 
         opt_match = re.match(r"^([A-Da-d])\s*[.、．:：]\s*(.+)", line)
